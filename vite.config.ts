@@ -11,8 +11,12 @@ if (process.env.TEMPO === "true") {
 const plugins = [react({ plugins: conditionalPlugins })];
 
 if (process.env.TEMPO === "true") {
-  const { tempo } = require("tempo-devtools/dist/vite");
-  plugins.push(tempo());
+  try {
+    const { tempo } = require("tempo-devtools/dist/vite");
+    plugins.push(tempo());
+  } catch (e) {
+    // tempo not installed
+  }
 }
 
 export default defineConfig({
@@ -22,7 +26,6 @@ export default defineConfig({
   },
   plugins,
   resolve: {
-    preserveSymlinks: true,
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
