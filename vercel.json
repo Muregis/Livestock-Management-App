@@ -5,7 +5,11 @@
       "src": "package.json",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["src/**/*.tsx", "src/**/*.ts", "database/**", "*.json"]
+        "includeFiles": ["src/**/*.tsx", "src/**/*.ts", "database/**", "*.json"],
+        "maxOpenFiles": 1000,
+        "env": {
+          "NODE_OPTIONS": "--max-old-space-size=4096"
+        }
       }
     }
   ],
@@ -18,5 +22,10 @@
       "src": "/(.*)",
       "dest": "/"
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 10
+    }
+  }
 }
