@@ -1,31 +1,9 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["src/**/*.tsx", "src/**/*.ts", "database/**", "*.json"],
-        "maxOpenFiles": 1000,
-        "env": {
-          "NODE_OPTIONS": "--max-old-space-size=4096"
-        }
-      }
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  ],
-  "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/"
-    }
-  ],
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }
