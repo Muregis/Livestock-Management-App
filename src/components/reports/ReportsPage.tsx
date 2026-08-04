@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -46,7 +46,7 @@ type ReportType =
 type ReportStatus = "Completed" | "Processing";
 
 interface Report {
-  id: number;
+  id: string;
   title: string;
   date: string;
   type: ReportType;
@@ -54,74 +54,29 @@ interface Report {
   description: string;
 }
 
-const initialReports: Report[] = [
-  {
-    id: 1,
-    title: "Monthly Milk Production Report",
-    date: "2024-02-01",
-    type: "Production",
-    status: "Completed",
-    description: "Detailed analysis of milk yield and quality metrics",
-  },
-  {
-    id: 2,
-    title: "Cattle Health Assessment",
-    date: "2024-02-15",
-    type: "Health",
-    status: "Processing",
-    description: "Comprehensive health check results for all cattle",
-  },
-  {
-    id: 3,
-    title: "Feed Consumption Analysis",
-    date: "2024-02-28",
-    type: "Inventory",
-    status: "Completed",
-    description: "Monthly feed usage and nutrition optimization report",
-  },
-  {
-    id: 4,
-    title: "Breeding Program Status",
-    date: "2024-03-01",
-    type: "Breeding",
-    status: "Completed",
-    description: "Current status of breeding program and genetic improvements",
-  },
-  {
-    id: 5,
-    title: "Dairy Equipment Maintenance",
-    date: "2024-03-05",
-    type: "Maintenance",
-    status: "Processing",
-    description: "Maintenance logs for milking and dairy processing equipment",
-  },
-  {
-    id: 6,
-    title: "Veterinary Visit Summary",
-    date: "2024-03-10",
-    type: "Health",
-    status: "Completed",
-    description:
-      "Documentation of recent veterinary examinations and treatments",
-  },
-  {
-    id: 7,
-    title: "Quality Assurance Audit",
-    date: "2024-03-15",
-    type: "Compliance",
-    status: "Completed",
-    description: "Results from monthly dairy quality and safety inspections",
-  },
-];
-
 const ReportsPage = () => {
-  const [reports] = useState<Report[]>(initialReports);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<ReportType | "all">("all");
   const [filterStatus, setFilterStatus] = useState<ReportStatus | "all">("all");
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
 
-  // Filter reports based on search term and filters
+  useEffect(() => {
+    const loadReports = async () => {
+      try {
+        // TODO: Implement ReportService when available
+        // const data = await ReportService.getAll();
+        // setReports(data);
+      } catch (err) {
+        console.error("Failed to load reports:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadReports();
+  }, []);
+
   const filteredReports = reports.filter((report) => {
     const matchesSearch = report.title
       .toLowerCase()
@@ -135,17 +90,14 @@ const ReportsPage = () => {
 
   const handleDownload = (report: Report) => {
     console.log(`Downloading report: ${report.title}`);
-    alert(`Downloading ${report.title}...`);
   };
 
   const handlePrint = (report: Report) => {
     console.log(`Printing report: ${report.title}`);
-    alert(`Printing ${report.title}...`);
   };
 
   const handleExportAll = () => {
     console.log("Exporting all reports");
-    alert("Exporting all reports...");
   };
 
   const clearFilters = () => {
@@ -162,6 +114,29 @@ const ReportsPage = () => {
   const reportStatuses = Array.from(
     new Set(reports.map((report) => report.status)),
   ).sort() as ReportStatus[];
+
+  if (isLoading) {
+    return (
+      <div className="h-[calc(100vh-10rem)] flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 flex-shrink-0">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold">Reports Archive</h1>
+            <p className="text-sm md:text-base text-gray-500">
+              Access and download detailed cattle management reports
+            </p>
+          </div>
+        </div>
+        <Card className="flex-1 flex flex-col min-h-0 p-4">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading reports...</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-10rem)] flex flex-col gap-4">

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { WorkerService } from "@/lib/livestockService";
+import type { Worker, WorkerRole, WorkerStatus } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -42,111 +43,69 @@ import {
   Filter,
 } from "lucide-react";
 
-type WorkerRole =
-  | "Veterinarian"
-  | "Farm Hand"
-  | "Milking Specialist"
-  | "Maintenance"
-  | "Manager";
-type WorkerStatus = "Active" | "On Leave" | "Off Duty";
-
-interface Worker {
-  id: string;
-  name: string;
-  role: WorkerRole;
-  status: WorkerStatus;
-  avatar: string;
-  phone: string;
-  email: string;
-  location: string;
-  startDate: string;
-  specialization?: string;
-  currentTasks?: number;
-  bio?: string;
-}
-
-const defaultWorkers: Worker[] = [
-  {
-    id: "1",
-    name: "Dr. Sarah Miller",
-    role: "Veterinarian",
-    status: "Active",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-    phone: "+1 (555) 123-4567",
-    email: "sarah.miller@farm.com",
-    location: "Main Clinic",
-    startDate: "2023-01-15",
-    specialization: "Large Animal Medicine",
-    currentTasks: 3,
-    bio: "Experienced veterinarian specializing in dairy cattle health and reproductive management.",
-  },
-  {
-    id: "2",
-    name: "Mike Johnson",
-    role: "Milking Specialist",
-    status: "Active",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike",
-    phone: "+1 (555) 234-5678",
-    email: "mike.j@farm.com",
-    location: "Milking Parlor A",
-    startDate: "2023-03-20",
-    currentTasks: 2,
-    bio: "Expert in modern milking techniques and dairy hygiene protocols.",
-  },
-  {
-    id: "3",
-    name: "Emma Davis",
-    role: "Farm Hand",
-    status: "On Leave",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emma",
-    phone: "+1 (555) 345-6789",
-    email: "emma.d@farm.com",
-    location: "Field Operations",
-    startDate: "2023-06-10",
-    currentTasks: 0,
-  },
-];
+type FilterRole = "all" | "Veterinarian" | "Farm Hand" | "Milking Specialist" | "Maintenance" | "Manager";
+type FilterStatus = "all" | "Active" | "On Leave" | "Off Duty";
 
 const WorkersPage = () => {
-  const [workers, setWorkers] = useState<Worker[]>(defaultWorkers);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterRole, setFilterRole] = useState<WorkerRole | "all">("all");
-  const [filterStatus, setFilterStatus] = useState<WorkerStatus | "all">("all");
+  const [filterRole, setFilterRole] = useState<FilterRole>("all");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [isAddWorkerOpen, setIsAddWorkerOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const filteredWorkers = workers.filter((worker) => {
-    const matchesSearch =
-      worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      worker.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === "all" || worker.role === filterRole;
-    const matchesStatus =
-      filterStatus === "all" || worker.status === filterStatus;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  useEffect(() => {
+    const loadWorkers = async () => {
+      try {
+        const data = await WorkerService.getAll();
+        setWorkers(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load workers");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadWorkers();
+  }, []);
+
+  const getWorkerStatus = (worker: Worker): WorkerStatus => {
+    if (!worker.status) return "Active";
+    return worker.status as WorkerStatus;
+  };
+
+  const getFilteredWorkers = () => {
+    return workers.filter((worker) => {
+      const matchesSearch =
+        worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (worker.email || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = filterRole === "all" || worker.role === filterRole;
+      const matchesStatus = filterStatus === "all" || getWorkerStatus(worker) === filterStatus;
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  };
 
   const handleAddWorker = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
-    const newWorker: Worker = {
-      id: Date.now().toString(),
+    const newWorker: Omit<Worker, "id"> = {
       name: formData.get("name") as string,
       role: formData.get("role") as WorkerRole,
-      status: "Active",
+      status: "Active" as WorkerStatus,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
       phone: formData.get("phone") as string,
       email: formData.get("email") as string,
       location: formData.get("location") as string,
       startDate: formData.get("startDate") as string,
-      specialization: formData.get("specialization") as string,
-      bio: formData.get("bio") as string,
-      currentTasks: 0,
+      specialization: formData.get("specialization") as string | undefined,
     };
 
-    setWorkers((prev) => [...prev, newWorker]);
+    setWorkers((prev) => [...prev, { ...newWorker, id: Date.now().toString() }]);
     setIsAddWorkerOpen(false);
   };
 
@@ -166,6 +125,33 @@ const WorkersPage = () => {
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
+
+  const filteredWorkers = getFilteredWorkers();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading workers...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center p-4">
+          <p className="text-red-600 mb-2">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const workerRoles: FilterRole[] = ["Veterinarian", "Farm Hand", "Milking Specialist", "Maintenance", "Manager"];
+  const workerStatuses: FilterStatus[] = ["Active", "On Leave", "Off Duty"];
 
   return (
     <div className="space-y-4">
@@ -212,7 +198,7 @@ const WorkersPage = () => {
               <div className="flex justify-between">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={worker.avatar} />
+                    <AvatarImage src={worker.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${worker.name}`} />
                     <AvatarFallback>{worker.name[0]}</AvatarFallback>
                   </Avatar>
                   <div>
@@ -251,9 +237,9 @@ const WorkersPage = () => {
               <div className="mt-4 space-y-2">
                 <Badge
                   variant="outline"
-                  className={`${getStatusColor(worker.status)}`}
+                  className={`${getStatusColor(getWorkerStatus(worker))}`}
                 >
-                  {worker.status}
+                  {getWorkerStatus(worker)}
                 </Badge>
 
                 <div className="grid grid-cols-1 gap-2 text-sm">
@@ -284,7 +270,6 @@ const WorkersPage = () => {
         </div>
       </ScrollArea>
 
-      {/* Add Worker Dialog */}
       <Dialog open={isAddWorkerOpen} onOpenChange={setIsAddWorkerOpen}>
         <DialogContent>
           <DialogHeader>
@@ -304,13 +289,9 @@ const WorkersPage = () => {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Veterinarian">Veterinarian</SelectItem>
-                    <SelectItem value="Farm Hand">Farm Hand</SelectItem>
-                    <SelectItem value="Milking Specialist">
-                      Milking Specialist
-                    </SelectItem>
-                    <SelectItem value="Maintenance">Maintenance</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
+                    {workerRoles.filter(r => r !== "all").map((role) => (
+                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -343,11 +324,6 @@ const WorkersPage = () => {
               <Input id="specialization" name="specialization" />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <Textarea id="bio" name="bio" />
-            </div>
-
             <DialogFooter>
               <Button
                 type="button"
@@ -362,7 +338,6 @@ const WorkersPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Worker Details Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -372,7 +347,7 @@ const WorkersPage = () => {
             <div className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
-                  <AvatarImage src={selectedWorker.avatar} />
+                  <AvatarImage src={selectedWorker.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedWorker.name}`} />
                   <AvatarFallback>{selectedWorker.name[0]}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -388,9 +363,9 @@ const WorkersPage = () => {
                   <Label>Status</Label>
                   <Badge
                     variant="outline"
-                    className={getStatusColor(selectedWorker.status)}
+                    className={getStatusColor(getWorkerStatus(selectedWorker))}
                   >
-                    {selectedWorker.status}
+                    {getWorkerStatus(selectedWorker)}
                   </Badge>
                 </div>
                 <div className="space-y-1">
@@ -431,28 +406,19 @@ const WorkersPage = () => {
                   )}
                 </div>
               </div>
-
-              {selectedWorker.bio && (
-                <div className="space-y-1">
-                  <Label>Bio</Label>
-                  <p className="text-gray-600">{selectedWorker.bio}</p>
-                </div>
-              )}
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDetailsOpen(false)}
-                >
-                  Close
-                </Button>
-              </DialogFooter>
             </div>
           )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDetailsOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Filter Dialog */}
       <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
         <DialogContent>
           <DialogHeader>
@@ -463,22 +429,16 @@ const WorkersPage = () => {
               <Label>Role</Label>
               <Select
                 value={filterRole}
-                onValueChange={(value) =>
-                  setFilterRole(value as WorkerRole | "all")
-                }
+                onValueChange={(value) => setFilterRole(value as FilterRole)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="Veterinarian">Veterinarian</SelectItem>
-                  <SelectItem value="Farm Hand">Farm Hand</SelectItem>
-                  <SelectItem value="Milking Specialist">
-                    Milking Specialist
-                  </SelectItem>
-                  <SelectItem value="Maintenance">Maintenance</SelectItem>
-                  <SelectItem value="Manager">Manager</SelectItem>
+                  {workerRoles.filter(r => r !== "all").map((role) => (
+                    <SelectItem key={role} value={role}>{role}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -487,18 +447,16 @@ const WorkersPage = () => {
               <Label>Status</Label>
               <Select
                 value={filterStatus}
-                onValueChange={(value) =>
-                  setFilterStatus(value as WorkerStatus | "all")
-                }
+                onValueChange={(value) => setFilterStatus(value as FilterStatus)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="On Leave">On Leave</SelectItem>
-                  <SelectItem value="Off Duty">Off Duty</SelectItem>
+                  {workerStatuses.filter(s => s !== "all").map((status) => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -509,6 +467,7 @@ const WorkersPage = () => {
                 onClick={() => {
                   setFilterRole("all");
                   setFilterStatus("all");
+                  setIsFilterOpen(false);
                 }}
               >
                 Reset

@@ -1,4 +1,6 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { TaskService } from "@/lib/livestockService";
+import type { Task, TaskPriority, TaskCategory, TaskStatusType } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,7 +30,6 @@ import {
   Tractor,
   Search,
   Filter,
-  ChevronDown,
   Edit2,
   Trash2,
 } from "lucide-react";
@@ -49,101 +50,18 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
-type TaskPriority = "high" | "medium" | "low";
-type TaskCategory = "feeding" | "health" | "maintenance" | "milking";
-type TaskStatus = "todo" | "in-progress" | "done";
+const TaskCategoryIconMap: Record<TaskCategory, React.ElementType> = {
+  feeding: Beef,
+  health: Stethoscope,
+  maintenance: Tractor,
+  milking: Milk,
+  breeding: Beef,
+};
 
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  category: TaskCategory;
-  assignee?: {
-    name: string;
-    avatar: string;
-  };
-  aiSuggestion?: string;
-  dueDate: string;
-  estimatedTime?: string;
-  location?: string;
-}
-
-const defaultTasks: Task[] = [
-  {
-    id: "1",
-    title: "Morning Milking Session",
-    description: "Conduct morning milking for Holstein herd in Barn A",
-    status: "todo",
-    priority: "high",
-    category: "milking",
-    dueDate: "2024-02-20",
-    estimatedTime: "2 hours",
-    location: "Barn A",
-    aiSuggestion:
-      "Production has been 15% higher during morning sessions. Consider assigning experienced staff.",
-  },
-  {
-    id: "2",
-    title: "Veterinary Check-up",
-    description: "Routine health inspection for pregnant cows",
-    status: "in-progress",
-    priority: "high",
-    category: "health",
-    assignee: {
-      name: "Dr. Sarah",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-    },
-    dueDate: "2024-02-20",
-    estimatedTime: "3 hours",
-    location: "Medical Bay",
-  },
-  {
-    id: "3",
-    title: "Feed Distribution",
-    description: "Distribute morning feed mix to dairy cows",
-    status: "todo",
-    priority: "medium",
-    category: "feeding",
-    dueDate: "2024-02-20",
-    estimatedTime: "1.5 hours",
-    location: "Feed Storage",
-    aiSuggestion:
-      "Current feed stock will last 3 days. Consider ordering more.",
-  },
-];
-
-const workers = [
-  {
-    name: "Dr. Sarah",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-  },
-  {
-    name: "Mike",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike",
-  },
-  {
-    name: "John",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
-  },
-  {
-    name: "Emma",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emma",
-  },
-];
-
-const getCategoryIcon = (category: TaskCategory) => {
-  switch (category) {
-    case "feeding":
-      return <Beef className="w-4 h-4" />;
-    case "health":
-      return <Stethoscope className="w-4 h-4" />;
-    case "maintenance":
-      return <Tractor className="w-4 h-4" />;
-    case "milking":
-      return <Milk className="w-4 h-4" />;
-  }
+const getCategoryIcon = (category?: Task["category"]): JSX.Element | null => {
+  if (!category) return null;
+  const Icon = TaskCategoryIconMap[category];
+  return <Icon className="w-4 h-4" />;
 };
 
 const TaskCard = ({
@@ -155,9 +73,17 @@ const TaskCard = ({
   task: Task;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
-  onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onStatusChange: (taskId: string, newStatus: TaskStatusType) => void;
 }) => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  const getPriorityVariant = (priority: TaskPriority) => {
+    switch (priority) {
+      case "high": return "destructive";
+      case "medium": return "default";
+      case "low": return "secondary";
+    }
+  };
 
   return (
     <>
@@ -199,19 +125,10 @@ const TaskCard = ({
 
         <div className="flex justify-between items-start mb-2 pr-8">
           <div className="flex items-center gap-2">
-            {getCategoryIcon(task.category)}
+            {task.category && getCategoryIcon(task.category)}
             <h3 className="font-medium">{task.title}</h3>
           </div>
-          <Badge
-            variant={
-              task.priority === "high"
-                ? "destructive"
-                : task.priority === "medium"
-                  ? "default"
-                  : "secondary"
-            }
-            className="text-xs"
-          >
+          <Badge variant={getPriorityVariant(task.priority)} className="text-xs">
             {task.priority}
           </Badge>
         </div>
@@ -225,51 +142,35 @@ const TaskCard = ({
             <Calendar className="w-4 h-4" />
             <span>{task.dueDate}</span>
           </div>
-          {task.assignee && (
-            <Avatar className="w-6 h-6">
-              <AvatarImage
-                src={task.assignee.avatar}
-                alt={task.assignee.name}
-              />
-              <AvatarFallback>{task.assignee.name[0]}</AvatarFallback>
-            </Avatar>
-          )}
         </div>
 
-        {task.aiSuggestion && (
-          <div className="mt-2 p-2 bg-blue-50 rounded-md flex items-start gap-2">
-            <Brain className="w-4 h-4 text-blue-500 mt-1 flex-shrink-0" />
-            <p className="text-xs text-blue-700">{task.aiSuggestion}</p>
+        {task.estimatedTime && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+            <Clock className="w-4 h-4" />
+            <span>{task.estimatedTime}</span>
           </div>
         )}
       </Card>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {getCategoryIcon(task.category)}
+              {task.category && getCategoryIcon(task.category) && getCategoryIcon(task.category)!}
               {task.title}
             </DialogTitle>
+            <DialogDescription>{task.description}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Badge
-                variant={
-                  task.priority === "high"
-                    ? "destructive"
-                    : task.priority === "medium"
-                      ? "default"
-                      : "secondary"
-                }
-              >
+              <Badge variant={getPriorityVariant(task.priority)}>
                 {task.priority} Priority
               </Badge>
 
               <Select
                 defaultValue={task.status}
-                onValueChange={(value: TaskStatus) => {
+                onValueChange={(value: TaskStatusType) => {
                   onStatusChange(task.id, value);
                   setIsDetailsOpen(false);
                 }}
@@ -284,8 +185,6 @@ const TaskCard = ({
                 </SelectContent>
               </Select>
             </div>
-
-            <p className="text-gray-600">{task.description}</p>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -310,35 +209,13 @@ const TaskCard = ({
                 <div className="text-sm text-gray-500">{task.location}</div>
               </div>
             )}
-
-            {task.assignee && (
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <Avatar>
-                  <AvatarImage
-                    src={task.assignee.avatar}
-                    alt={task.assignee.name}
-                  />
-                  <AvatarFallback>{task.assignee.name[0]}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-medium">{task.assignee.name}</div>
-                  <div className="text-sm text-gray-500">Assigned</div>
-                </div>
-              </div>
-            )}
-
-            {task.aiSuggestion && (
-              <div className="p-3 bg-blue-50 rounded-lg flex items-start gap-2">
-                <Brain className="w-5 h-5 text-blue-500 mt-1" />
-                <div>
-                  <div className="font-medium text-blue-700">AI Suggestion</div>
-                  <p className="text-sm text-blue-600 mt-1">
-                    {task.aiSuggestion}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
@@ -360,7 +237,7 @@ const TaskColumn = ({
   icon: React.ElementType;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
-  onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onStatusChange: (taskId: string, newStatus: TaskStatusType) => void;
 }) => (
   <div className="h-full">
     <div className="flex items-center justify-between mb-4">
@@ -387,21 +264,34 @@ const TaskColumn = ({
 );
 
 const TaskManagementBoard = () => {
-  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState<TaskCategory | "all">(
-    "all",
-  );
-  const [filterPriority, setFilterPriority] = useState<TaskPriority | "all">(
-    "all",
-  );
+  const [filterCategory, setFilterCategory] = useState<TaskCategory | "all">("all");
+  const [filterPriority, setFilterPriority] = useState<TaskPriority | "all">("all");
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const data = await TaskService.getAll();
+        setTasks(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load tasks");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadTasks();
+  }, []);
 
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (task.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
       filterCategory === "all" || task.category === filterCategory;
     const matchesPriority =
@@ -410,13 +300,11 @@ const TaskManagementBoard = () => {
   });
 
   const todoTasks = filteredTasks.filter((task) => task.status === "todo");
-  const inProgressTasks = filteredTasks.filter(
-    (task) => task.status === "in-progress",
-  );
+  const inProgressTasks = filteredTasks.filter((task) => task.status === "in-progress");
   const doneTasks = filteredTasks.filter((task) => task.status === "done");
 
   const handleStatusChange = useCallback(
-    (taskId: string, newStatus: TaskStatus) => {
+    (taskId: string, newStatus: TaskStatusType) => {
       setTasks((prevTasks) =>
         prevTasks.map((task) =>
           task.id === taskId ? { ...task, status: newStatus } : task,
@@ -441,11 +329,10 @@ const TaskManagementBoard = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
-    const newTask: Task = {
-      id: editingTask?.id || Date.now().toString(),
+    const newTask: Omit<Task, "id"> = {
       title: formData.get("title") as string,
       description: formData.get("description") as string,
-      status: editingTask?.status || "todo",
+      status: "todo",
       priority: formData.get("priority") as TaskPriority,
       category: formData.get("category") as TaskCategory,
       dueDate: formData.get("dueDate") as string,
@@ -453,37 +340,48 @@ const TaskManagementBoard = () => {
       estimatedTime: (formData.get("estimatedTime") as string) || undefined,
     };
 
-    const assigneeName = formData.get("assignee") as string;
-    if (assigneeName) {
-      const worker = workers.find((w) => w.name === assigneeName);
-      if (worker) {
-        newTask.assignee = worker;
-      }
-    }
-
-    // Add AI suggestions based on task category
-    const suggestions = {
-      feeding:
-        "Based on recent consumption patterns, consider adjusting portion sizes.",
-      health:
-        "Recent health trends suggest prioritizing preventive care measures.",
-      maintenance:
-        "Equipment efficiency has improved 20% with regular maintenance.",
-      milking: "Milk production peaks during early morning sessions.",
-    };
-    newTask.aiSuggestion = suggestions[newTask.category];
-
     if (editingTask) {
+      const updated = { ...editingTask, ...newTask };
       setTasks((prevTasks) =>
-        prevTasks.map((task) => (task.id === editingTask.id ? newTask : task)),
+        prevTasks.map((task) => (task.id === editingTask.id ? updated : task)),
       );
     } else {
-      setTasks((prevTasks) => [...prevTasks, newTask]);
+      const taskWithId: Task = {
+        ...newTask,
+        id: Date.now().toString(),
+      };
+      setTasks((prevTasks) => [...prevTasks, taskWithId]);
     }
 
     setIsAddTaskOpen(false);
     setEditingTask(null);
   };
+
+  if (isLoading) {
+    return (
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading tasks...</p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-4 sm:p-6">
+        <div className="text-center text-red-600">
+          <p>{error}</p>
+          <Button onClick={() => window.location.reload()} className="mt-4">
+            Retry
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-4 sm:p-6">
@@ -582,7 +480,7 @@ const TaskManagementBoard = () => {
       </div>
 
       <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingTask ? "Edit Task" : "Add New Task"}
@@ -593,7 +491,7 @@ const TaskManagementBoard = () => {
                 : "Fill in the task details below"}
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleAddOrUpdateTask}>
+          <form className="space-y-4 flex-1 flex flex-col" onSubmit={handleAddOrUpdateTask}>
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
               <Input
@@ -687,32 +585,7 @@ const TaskManagementBoard = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="assignee">Assignee</Label>
-              <Select
-                name="assignee"
-                defaultValue={editingTask?.assignee?.name}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {workers.map((worker) => (
-                    <SelectItem key={worker.name} value={worker.name}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={worker.avatar} />
-                          <AvatarFallback>{worker.name[0]}</AvatarFallback>
-                        </Avatar>
-                        {worker.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
                 type="button"
