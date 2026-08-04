@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Home, User, BarChart3, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 
 const registrationSchema = z.object({
   farmName: z.string().min(2, "Farm name must be at least 2 characters"),
   ownerName: z.string().min(2, "Owner name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().optional(),
   farmType: z.enum(["dairy", "beef", "sheep", "goats", "poultry", "rabbits", "pigs", "mixed", "other"]),
   numberOfAnimals: z.number().min(1, "Must have at least 1 animal"),
@@ -21,12 +23,19 @@ const registrationSchema = z.object({
 
 type RegistrationFormData = z.infer<typeof registrationSchema>;
 
+type EnrollmentResult = {
+  success: boolean;
+  message: string;
+};
+
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [completed, setCompleted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [result, setResult] = useState<EnrollmentResult | null>(null);
   const navigate = useNavigate();
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<RegistrationFormData>({
+  const { register, handleSubmit, watch, trigger, formState: { errors } } = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       farmType: "dairy",
@@ -36,6 +45,20 @@ export default function OnboardingPage() {
 
   const watchedValues = watch();
 
+  const handleStepContinue = async () => {
+    const fieldsByStep: Record<number, Array<keyof RegistrationFormData>> = {
+      1: ["farmName", "farmType"],
+      2: ["ownerName", "email", "password", "phone"],
+      3: ["numberOfAnimals"],
+    };
+
+    const fields = fieldsByStep[step] ?? [];
+    const isValid = await trigger(fields as any);
+    if (isValid) {
+      setStep(step + 1);
+    }
+  };
+
   const steps = [
     { title: "Farm Info", icon: Home },
     { title: "Owner Details", icon: User },
@@ -43,14 +66,61 @@ export default function OnboardingPage() {
     { title: "Review", icon: Shield },
   ];
 
-  const onSubmit = (data: RegistrationFormData) => {
+  const createUserProfile = async (userId: string, values: RegistrationFormData) => {
+    const { error: profileError } = await supabase
+      .from("users")
+      .insert([{
+        id: userId,
+        email: values.email,
+        name: values.ownerName,
+        role: "viewer",
+        permissions: ["read"],
+        phone: values.phone || null,
+        is_active: true,
+        hire_date: new Date().toISOString(),
+      }]);
+
+    if (profileError) {
+      console.warn("[OnboardingPage] unable to create profile row", profileError.message);
+    }
+  };
+
+  const onSubmit = async (data: RegistrationFormData) => {
     if (step < 4) {
       setStep(step + 1);
       return;
     }
 
-    localStorage.setItem("onboardingData", JSON.stringify(data));
-    setCompleted(true);
+    setErrorMessage(null);
+
+    try {
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const userId = signUpData?.user?.id;
+      if (!userId) {
+        throw new Error("Failed to create auth user.");
+      }
+
+      await createUserProfile(userId, data);
+      localStorage.setItem("onboardingData", JSON.stringify(data));
+      setCompleted(true);
+      setResult({
+        success: true,
+        message: "Your account was created. Use the login form to sign in once your email is confirmed.",
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to complete onboarding.");
+    }
   };
 
   if (completed) {
@@ -63,14 +133,11 @@ export default function OnboardingPage() {
         <p className="mx-auto max-w-xl text-sm text-slate-600 mb-6">
           Your farm onboarding data is saved and ready to use. Sign in with your account to continue.
         </p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button className="w-full sm:w-auto" onClick={() => navigate("/login")}>
-            Go to Login
-          </Button>
-          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setCompleted(false)}>
-            Edit Onboarding
-          </Button>
-        </div>
+        {result && (
+          <div className="mx-auto mb-6 max-w-xl rounded-xl border border-green-200 bg-green-50 p-4 text-left text-sm text-green-800">
+            {result.message}
+          </div>
+        )}
       </div>
     );
   }
@@ -144,6 +211,11 @@ export default function OnboardingPage() {
                     {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" type="password" {...register("password")} placeholder="••••••••" />
+                    {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="phone">Phone</Label>
                     <Input id="phone" type="tel" {...register("phone")} placeholder="+1 555 987 6543" />
                   </div>
@@ -186,6 +258,12 @@ export default function OnboardingPage() {
                 </div>
               )}
 
+              {errorMessage && (
+                <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                  {errorMessage}
+                </div>
+              )}
+
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
                 {step > 1 ? (
                   <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>
@@ -194,9 +272,13 @@ export default function OnboardingPage() {
                 ) : (
                   <div />
                 )}
-                <Button type="submit">
-                  {step === 4 ? "Finish Setup" : "Continue"}
-                </Button>
+                {step === 4 ? (
+                  <Button type="submit">Finish Setup</Button>
+                ) : (
+                  <Button type="button" onClick={handleStepContinue}>
+                    Continue
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
