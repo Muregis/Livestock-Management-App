@@ -13,7 +13,7 @@ INSERT INTO users (id, email, password_hash, name, role, permissions, hire_date)
 (
   UUID(),
   'test.user@livestock.local',
-  '$2y$10$test_hash_change_me',
+  '$2b$10$tmKJ9PY9j6K6YxyY0txZJumwTBGVCxdj0SaKxg0F1eqg1dh572v36',
   'Test User',
   'admin',
   '{"read","write","delete","manage_animals"}',
