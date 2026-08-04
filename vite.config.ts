@@ -25,20 +25,10 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ["react", "react-dom"],
-          ui: [
-            "@radix-ui/react-checkbox",
-            "@radix-ui/react-dropdown-menu",
-            "@radix-ui/react-dialog",
-            "@radix-ui/react-tooltip",
-            "@radix-ui/reactpopover",
-            "@radix-ui/react-menu",
-            "@radix-ui/react-tabs"
-          ],
-          charts: ["recharts"],
-          utils: ["lucide-react", "clsx", "date-fns"]
-        }
+        format: "es",
+        entryFileNames: "assets/[name].[hash].js",
+        chunkFileNames: "assets/[name].[hash].js",
+        assetFileNames: "assets/[name].[hash].[ext]"
       }
     }
   },
@@ -53,7 +43,7 @@ export default defineConfig({
   plugins,
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": "/src",
     },
   },
 });

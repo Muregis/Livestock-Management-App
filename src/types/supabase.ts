@@ -32,11 +32,20 @@ export interface Database {
           genetic_value: number | null
           health_score: number | null
           productivity_score: number | null
+          age_in_days: number | null
+          age_display: string | null
+          is_pregnant: boolean
+          expected_calving_date: string | null
+          last_milk_date: string | null
+          species: 'dairy_cattle' | 'beef_cattle' | 'sheep' | 'goats' | 'poultry' | 'rabbits' | 'pigs' | 'horses' | 'buffalo' | 'camel' | 'other'
+          created_at: string
+          updated_at: string
         }
         Insert: {
           ear_tag: string
           name?: string
           gender: 'male' | 'female'
+          species?: 'dairy_cattle' | 'beef_cattle' | 'sheep' | 'goats' | 'poultry' | 'rabbits' | 'pigs' | 'horses' | 'buffalo' | 'camel' | 'other'
           breed: string
           sire_id?: string
           dam_id?: string
@@ -55,20 +64,38 @@ export interface Database {
           genetic_value?: number
           health_score?: number
           productivity_score?: number
+          age_in_days?: number
+          age_display?: string
+          is_pregnant?: boolean
+          expected_calving_date?: string
+          last_milk_date?: string
         }
         Update: {
           ear_tag?: string
           name?: string
+          gender?: 'male' | 'female'
+          species?: 'dairy_cattle' | 'beef_cattle' | 'sheep' | 'goats' | 'poultry' | 'rabbits' | 'pigs' | 'horses' | 'buffalo' | 'camel' | 'other'
+          breed?: string
+          sire_id?: string
+          dam_id?: string
+          birth_date?: string
           status?: 'active' | 'sold' | 'deceased' | 'quarantine'
           location_id?: string
           location_name?: string
+          acquisition_date?: string
+          acquisition_cost?: number
           current_weight?: number
           expected_weight?: number
           milk_production_today?: number
           days_in_milk?: number
           body_condition_score?: number
+          genetic_value?: number
           health_score?: number
           productivity_score?: number
+          age_display?: string
+          is_pregnant?: boolean
+          expected_calving_date?: string
+          last_milk_date?: string
         }
       }
       health_events: {
@@ -83,6 +110,7 @@ export interface Database {
           cost: number
           notes: string | null
           next_due_date: string | null
+          related_event_id: string | null
         }
         Insert: {
           animal_id: string
@@ -91,9 +119,10 @@ export interface Database {
           description: string
           veterinarian_id?: string
           veterinarian_name?: string
-          cost: number
+          cost?: number
           notes?: string
           next_due_date?: string
+          related_event_id?: string
         }
       }
       breeding_events: {
@@ -137,7 +166,7 @@ export interface Database {
           animal_id: string
           feed_type: 'hay' | 'silage' | 'grain' | 'supplement' | 'mineral'
           quantity: number
-          unit: string
+          unit?: string
           date: string
           notes?: string
         }
@@ -194,7 +223,16 @@ export interface Database {
           dose: string
           route: string
           applicable_breeds: string[]
-          contraindications: string[]
+          contraindications: string[] | null
+          valid_for_months: number
+        }
+        Insert: {
+          vaccine: string
+          age_months: number
+          dose: string
+          route: string
+          applicable_breeds?: string[]
+          contraindications?: string[]
           valid_for_months: number
         }
       }
@@ -202,7 +240,7 @@ export interface Database {
         Row: {
           id: string
           title: string
-          description: string
+          description: string | null
           status: 'todo' | 'in-progress' | 'done'
           priority: 'high' | 'medium' | 'low'
           category: 'feeding' | 'health' | 'maintenance' | 'milking' | 'breeding'
@@ -213,11 +251,13 @@ export interface Database {
           location: string | null
           related_animal_id: string | null
           recurring: boolean | null
+          recurrence_pattern: 'daily' | 'weekly' | 'monthly' | null
           created_at: string
+          updated_at: string
         }
         Insert: {
           title: string
-          description: string
+          description?: string
           status?: 'todo' | 'in-progress' | 'done'
           priority?: 'high' | 'medium' | 'low'
           category: 'feeding' | 'health' | 'maintenance' | 'milking' | 'breeding'
@@ -228,6 +268,7 @@ export interface Database {
           location?: string
           related_animal_id?: string
           recurring?: boolean
+          recurrence_pattern?: 'daily' | 'weekly' | 'monthly'
         }
         Update: {
           title?: string
@@ -240,6 +281,8 @@ export interface Database {
           estimated_time?: string
           location?: string
           related_animal_id?: string
+          recurring?: boolean
+          recurrence_pattern?: 'daily' | 'weekly' | 'monthly'
         }
       }
       workers: {
@@ -248,23 +291,66 @@ export interface Database {
           name: string
           role: string
           status: 'Active' | 'On Leave' | 'Off Duty'
-          avatar: string
+          avatar: string | null
           phone: string
           email: string
           location: string
           start_date: string
           specialization: string | null
+          current_tasks: number
+          created_at: string
+          updated_at: string
         }
         Insert: {
           name: string
           role: string
           status?: 'Active' | 'On Leave' | 'Off Duty'
-          avatar: string
+          avatar?: string
           phone: string
           email: string
           location: string
           start_date: string
           specialization?: string
+          current_tasks?: number
+        }
+      }
+      reports: {
+        Row: {
+          id: string
+          title: string
+          date: string
+          type: 'Production' | 'Health' | 'Inventory' | 'Breeding' | 'Maintenance' | 'Compliance' | 'Financial'
+          status: 'Completed' | 'Processing'
+          description: string | null
+          data: string | null
+        }
+        Insert: {
+          title: string
+          date: string
+          type: 'Production' | 'Health' | 'Inventory' | 'Breeding' | 'Maintenance' | 'Compliance' | 'Financial'
+          status?: 'Completed' | 'Processing'
+          description?: string
+          data?: string
+        }
+      }
+      breeds: {
+        Row: {
+          id: string
+          species: 'dairy_cattle' | 'beef_cattle' | 'sheep' | 'goats' | 'poultry' | 'rabbits' | 'pigs' | 'horses' | 'buffalo' | 'camel' | 'other'
+          name: string
+          growth_rate: number
+          lactation_capacity: number
+          gestation_period: number
+          description: string | null
+        }
+        Insert: {
+          id: string
+          species: 'dairy_cattle' | 'beef_cattle' | 'sheep' | 'goats' | 'poultry' | 'rabbits' | 'pigs' | 'horses' | 'buffalo' | 'camel' | 'other'
+          name: string
+          growth_rate?: number
+          lactation_capacity?: number
+          gestation_period?: number
+          description?: string
         }
       }
     }
