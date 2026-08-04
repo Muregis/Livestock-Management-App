@@ -1,14 +1,19 @@
 {
+  "version": 2,
   "builds": [
     {
       "src": "package.json",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["src/**/*.tsx", "src/**/*.ts", "database/**"]
+        "includeFiles": ["src/**/*.tsx", "src/**/*.ts", "database/**", "*.json"]
       }
     }
   ],
   "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
     {
       "src": "/(.*)",
       "dest": "/"
