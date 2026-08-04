@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ const registrationSchema = z.object({
   ownerName: z.string().min(2, "Owner name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  phone: z.string().optional(),
+  phone: z.string().optional().or(z.literal("")),
   farmType: z.enum(["dairy", "beef", "sheep", "goats", "poultry", "rabbits", "pigs", "mixed", "other"]),
   numberOfAnimals: z.number().min(1, "Must have at least 1 animal"),
 });
@@ -35,7 +35,7 @@ export default function OnboardingPage() {
   const [result, setResult] = useState<EnrollmentResult | null>(null);
   const navigate = useNavigate();
 
-  const { register, handleSubmit, watch, trigger, formState: { errors } } = useForm<RegistrationFormData>({
+  const { register, handleSubmit, watch, trigger, control, formState: { errors } } = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       farmType: "dairy",
@@ -177,22 +177,28 @@ export default function OnboardingPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="farmType">Farm Type</Label>
-                    <Select {...register("farmType") as any}>
-                      <SelectTrigger id="farmType">
-                        <SelectValue placeholder="Select farm type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dairy">Dairy Cattle</SelectItem>
-                        <SelectItem value="beef">Beef Cattle</SelectItem>
-                        <SelectItem value="sheep">Sheep</SelectItem>
-                        <SelectItem value="goats">Goats</SelectItem>
-                        <SelectItem value="poultry">Poultry</SelectItem>
-                        <SelectItem value="rabbits">Rabbits</SelectItem>
-                        <SelectItem value="pigs">Pigs</SelectItem>
-                        <SelectItem value="mixed">Mixed Livestock</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Controller
+                      name="farmType"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger id="farmType">
+                            <SelectValue placeholder="Select farm type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="dairy">Dairy Cattle</SelectItem>
+                            <SelectItem value="beef">Beef Cattle</SelectItem>
+                            <SelectItem value="sheep">Sheep</SelectItem>
+                            <SelectItem value="goats">Goats</SelectItem>
+                            <SelectItem value="poultry">Poultry</SelectItem>
+                            <SelectItem value="rabbits">Rabbits</SelectItem>
+                            <SelectItem value="pigs">Pigs</SelectItem>
+                            <SelectItem value="mixed">Mixed Livestock</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                     {errors.farmType && <p className="text-sm text-destructive">{errors.farmType.message}</p>}
                   </div>
                 </div>
