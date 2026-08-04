@@ -376,13 +376,42 @@ export class UserService {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) return null;
 
-    const { data: profile, error: profileError } = await supabase
+    let { data: profile, error: profileError } = await supabase
       .from('users')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError) return null;
+    if (profileError) {
+      return null;
+    }
+
+    if (!profile) {
+      const fallbackName =
+        user.user_metadata?.full_name || user.email?.split('@')[0] || 'Farm Owner';
+      const defaultPermissions: Permission[] = ['read'];
+
+      const { data: createdProfile, error: createError } = await supabase
+        .from('users')
+        .insert([{
+          id: user.id,
+          email: user.email ?? '',
+          name: fallbackName,
+          role: 'viewer',
+          permissions: defaultPermissions,
+          phone: null,
+          is_active: true,
+          hire_date: new Date().toISOString(),
+        }])
+        .select('*')
+        .maybeSingle();
+
+      if (createError || !createdProfile) {
+        return null;
+      }
+
+      profile = createdProfile;
+    }
     
     return {
       id: profile.id,
