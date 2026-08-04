@@ -1,0 +1,2 @@
+export { AnimalService, HealthEventService, BreedingService, FeedService, FinancialService, VaccinationService, TaskService, WorkerService } from '../lib/livestockService';
+export { HealthPredictionEngine, FeedOptimizationEngine, ProfitabilityEngine, BreedingOptimizer, AlertThresholdEngine } from './predictions';
