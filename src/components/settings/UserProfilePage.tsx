@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,21 +40,44 @@ interface UserProfile {
   joinDate: string;
 }
 
-const defaultProfile: UserProfile = {
-  name: "John Anderson",
-  email: "john.anderson@agrevanna.com",
-  phone: "+1 (555) 123-4567",
-  role: "Farm Administrator",
-  location: "Central Valley Farm",
-  farmName: "Agrivanna Livestock Farm",
-  avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=farm-manager",
-  joinDate: "2023-01-15",
+const emptyProfile: UserProfile = {
+  name: "",
+  email: "",
+  phone: "",
+  role: "",
+  location: "",
+  farmName: "",
+  avatar: "",
+  joinDate: "",
 };
 
 const UserProfilePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
+  const [profile, setProfile] = useState<UserProfile>(emptyProfile);
+  const [initialProfile, setInitialProfile] = useState<UserProfile>(emptyProfile);
+
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? window.localStorage.getItem("onboardingData") : null;
+    const parsed = stored ? JSON.parse(stored) : null;
+    const profileData: UserProfile = {
+      name: user?.name ?? "",
+      email: user?.email ?? "",
+      phone: user?.phone ?? "",
+      role: user?.role ? user.role.replace(/_/g, " ") : "",
+      location: parsed?.farmType ? String(parsed.farmType) : "",
+      farmName: parsed?.farmName ?? "",
+      avatar:
+        user?.avatar ||
+        `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email ?? "farm-user"}`,
+      joinDate: user?.hireDate
+        ? new Date(user.hireDate).toLocaleDateString()
+        : "",
+    };
+    setProfile(profileData);
+    setInitialProfile(profileData);
+  }, [user]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
@@ -138,7 +162,9 @@ const UserProfilePage = () => {
               <div className="relative">
                 <Avatar className="h-24 w-24">
                   <AvatarImage src={profile.avatar} />
-                  <AvatarFallback>JA</AvatarFallback>
+                  <AvatarFallback>
+                    {profile.name ? profile.name.charAt(0).toUpperCase() : "U"}
+                  </AvatarFallback>
                 </Avatar>
                 <Button
                   size="icon"
@@ -243,7 +269,7 @@ const UserProfilePage = () => {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setProfile(defaultProfile);
+                  setProfile(initialProfile);
                   setIsEditing(false);
                 }}
                 disabled={isSaving}

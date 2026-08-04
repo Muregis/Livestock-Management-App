@@ -1,11 +1,11 @@
 import React from "react";
-import { Home, FileText, Users, Settings, Brain } from "lucide-react";
+import { Home, FileText, Users, Settings, Brain, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BottomNavProps {
-  activeTab?: "dashboard" | "reports" | "workers" | "settings" | "ai";
+  activeTab?: "dashboard" | "reports" | "workers" | "animals" | "settings" | "ai";
   onTabChange?: (
-    tab: "dashboard" | "reports" | "workers" | "settings" | "ai",
+    tab: "dashboard" | "reports" | "workers" | "animals" | "settings" | "ai",
   ) => void;
 }
 
@@ -15,6 +15,7 @@ const BottomNav = ({
 }: BottomNavProps) => {
   const navItems = [
     { id: "dashboard", icon: Home, label: "Dashboard" },
+    { id: "animals", icon: ClipboardList, label: "Animals" },
     { id: "reports", icon: FileText, label: "Reports" },
     { id: "workers", icon: Users, label: "Workers" },
     { id: "ai", icon: Brain, label: "AI Tools" },

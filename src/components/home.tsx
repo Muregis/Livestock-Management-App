@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AnalyticsGrid from "./dashboard/AnalyticsGrid";
 import TaskManagementBoard from "./dashboard/TaskManagementBoard";
 import WorkersPage from "./workers/WorkersPage";
+import AnimalsPage from "./animals/AnimalsPage";
 import FarmSettingsPage from "./settings/FarmSettingsPage";
 import HealthMonitorPanel from "./dashboard/HealthMonitorPanel";
 import ActionFAB from "./dashboard/ActionFAB";
@@ -15,7 +16,6 @@ import {
   FileText,
   Users,
   Settings,
-  LayoutDashboard,
   Activity,
   ListTodo,
   HeartPulse,
@@ -25,7 +25,7 @@ import {
 const HomePage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "reports" | "workers" | "settings" | "ai"
+    "dashboard" | "reports" | "workers" | "animals" | "settings" | "ai"
   >("dashboard");
   const [activeDashboardView, setActiveDashboardView] = useState<
     "analytics" | "tasks" | "health"
@@ -87,6 +87,7 @@ const HomePage = () => {
           )}
           {activeTab === "reports" && <ReportsPage />}
           {activeTab === "workers" && <WorkersPage />}
+          {activeTab === "animals" && <AnimalsPage />}
           {activeTab === "ai" && <AIToolsPage />}
           {activeTab === "settings" && <FarmSettingsPage />}
         </div>

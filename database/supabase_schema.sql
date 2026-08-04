@@ -1,11 +1,12 @@
 -- ============================================================
--- Supabase Database Schema - MySQL Aligned with RLS Protection
--- Compatible with PostgreSQL via Supabase
+-- Supabase Database Schema - Livestock Management App
+-- Fixed for Supabase Postgres (RLS-safe, no DB creation)
 -- ============================================================
 
 create extension if not exists "uuid-ossp";
 
-alter database "livestock-management-app" set row_security = on;
+-- NOTE: Supabase projects come with a single database ("postgres").
+-- You cannot CREATE DATABASE / ALTER DATABASE in the SQL editor — removed.
 
 -- ============================================================
 -- USERS TABLE (For Authentication & RBAC)
@@ -53,7 +54,7 @@ insert into permissions (permission_key, description, category) values
 on conflict (permission_key) do nothing;
 
 -- ============================================================
--- ANIMALS TABLE (with Species Support - MySQL Aligned)
+-- ANIMALS TABLE (with Species Support)
 -- ============================================================
 create table if not exists animals (
     id uuid primary key default uuid_generate_v4(),
@@ -228,7 +229,7 @@ create index if not exists idx_tasks_category on tasks(category);
 create index if not exists idx_tasks_assignee on tasks(assignee_name);
 
 -- ============================================================
--- WORKERS TABLE (MySQL Aligned)
+-- WORKERS TABLE
 -- ============================================================
 create table if not exists workers (
     id uuid primary key default uuid_generate_v4(),
@@ -295,7 +296,7 @@ create table if not exists breeds (
     lactation_capacity numeric(6,2) default 0,
     gestation_period integer default 283,
     description text,
-    unique_breed_per_species (species, name)
+    constraint unique_breed_per_species unique (species, name)
 );
 
 insert into breeds (id, species, name, growth_rate, lactation_capacity, gestation_period, description) values
@@ -366,7 +367,7 @@ create index if not exists idx_audit_created on audit_log(created_at);
 -- ANIMAL DASHBOARD VIEW
 -- ============================================================
 create or replace view v_animal_dashboard as
-select 
+select
     a.id,
     a.ear_tag,
     a.name,
@@ -383,14 +384,32 @@ select
     concat(floor(coalesce(a.age_in_days, 0) / 365), 'y ', floor((coalesce(a.age_in_days, 0) % 365) / 30), 'm') as age_display,
     case when coalesce(a.health_score, 75) < 50 then 'critical' when coalesce(a.health_score, 75) < 70 then 'warning' else 'normal' end as health_risk,
     case a.species when 'dairy_cattle' then 'dairy' when 'beef_cattle' then 'beef' when 'sheep' then 'small_ruminant' when 'goats' then 'small_ruminant' when 'poultry' then 'poultry' when 'rabbits' then 'small_mammal' when 'pigs' then 'swine' else 'other' end as species_category
-from animals a 
+from animals a
 where a.status = 'active';
 
 -- ============================================================
--- RLS POLICIES - COMPACT & SECURE
+-- HELPER FUNCTION: current user's app role
+-- Supabase's built-in auth.role() returns 'authenticated'/'anon'/
+-- 'service_role' — it does NOT know about your custom `users.role`
+-- column. This function looks it up from auth.uid(), and is what
+-- the RLS policies below actually check.
+-- SECURITY DEFINER + fixed search_path avoids RLS recursion and
+-- search-path hijacking.
+-- ============================================================
+create or replace function public.current_app_role()
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select role from public.users where id = auth.uid();
+$$;
+
+-- ============================================================
+-- RLS POLICIES
 -- ============================================================
 
--- Enable RLS on all sensitive tables
 alter table animals enable row level security;
 alter table health_events enable row level security;
 alter table breeding_events enable row level security;
@@ -400,46 +419,100 @@ alter table financial_records enable row level security;
 alter table tasks enable row level security;
 alter table workers enable row level security;
 alter table reports enable row level security;
+alter table users enable row level security;
 
--- Compact policies: Public read, Authenticated write
-create policy "animals_rls" on animals for select using (true);
-create policy "animals_rls_write" on animals for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'));
+-- Public read, role-gated write, using current_app_role() instead
+-- of the non-existent auth.role() = 'manager' style check.
 
-create policy "health_events_rls" on health_events for select using (true);
-create policy "health_events_rls_write" on health_events for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'));
+create policy "animals_select" on animals for select using (true);
+create policy "animals_write" on animals
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'));
 
-create policy "breeding_events_rls" on breeding_events for select using (true);
-create policy "breeding_events_rls_write" on breeding_events for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'));
+create policy "health_events_select" on health_events for select using (true);
+create policy "health_events_write" on health_events
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'));
 
-create policy "feed_consumption_rls" on feed_consumption for select using (true);
-create policy "feed_consumption_rls_write" on feed_consumption for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager', 'farmhand'));
+create policy "breeding_events_select" on breeding_events for select using (true);
+create policy "breeding_events_write" on breeding_events
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'veterinarian', 'farmhand'));
 
-create policy "feed_inventory_rls" on feed_inventory for select using (true);
-create policy "feed_inventory_rls_write" on feed_inventory for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager'));
+create policy "feed_consumption_select" on feed_consumption for select using (true);
+create policy "feed_consumption_write" on feed_consumption
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'));
 
-create policy "financial_records_rls" on financial_records for select using (true);
-create policy "financial_records_rls_write" on financial_records for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager'));
+create policy "feed_inventory_select" on feed_inventory for select using (true);
+create policy "feed_inventory_write" on feed_inventory
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'));
 
-create policy "tasks_rls" on tasks for select using (true);
-create policy "tasks_rls_write" on tasks for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager', 'farmhand'));
+create policy "financial_records_select" on financial_records for select using (true);
+create policy "financial_records_write" on financial_records
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'));
 
-create policy "workers_rls" on workers for select using (true);
-create policy "workers_rls_write" on workers for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager'));
+create policy "tasks_select" on tasks for select using (true);
+create policy "tasks_write" on tasks
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'));
 
-create policy "reports_rls" on reports for select using (true);
-create policy "reports_rls_write" on reports for insert, update, delete using (auth.role() in ('superadmin', 'admin', 'manager'));
+create policy "workers_select" on workers for select using (true);
+create policy "workers_write" on workers
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'));
+
+create policy "reports_select" on reports for select using (true);
+create policy "reports_write" on reports
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'))
+with check (public.current_app_role() in ('superadmin', 'admin', 'manager', 'farmhand'));
+
+-- users table: users can see their own row; admins/superadmins see all.
+-- (No blanket "select using (true)" here — user PII shouldn't be public.)
+create policy "users_select_own_or_admin" on users
+for select
+to authenticated
+using (id = auth.uid() or public.current_app_role() in ('superadmin', 'admin'));
+
+create policy "users_write_admin_only" on users
+for all
+to authenticated
+using (public.current_app_role() in ('superadmin', 'admin'))
+with check (public.current_app_role() in ('superadmin', 'admin'));
 
 -- ============================================================
--- HELPER FUNCTIONS
+-- HELPER FUNCTIONS / TRIGGERS
 -- ============================================================
 
 create or replace function update_updated_at_column()
-returns trigger as $$
+returns trigger
+language plpgsql
+as $$
 begin
     new.updated_at = now();
     return new;
 end;
-$$ language plpgsql;
+$$;
 
 create trigger update_animals_updated_at before update on animals
     for each row execute function update_updated_at_column();
@@ -455,5 +528,5 @@ create trigger update_workers_updated_at before update on workers
 -- ============================================================
 select 'Schema created successfully with RLS protection!' as status;
 select count(*) as table_count from information_schema.tables where table_schema = 'public';
-select 'Tables with RLS enabled:' as info;
-select tablename from pg_tables where schemaname = 'public' and tablename in ('animals', 'health_events', 'breeding_events', 'feed_consumption', 'feed_inventory', 'financial_records', 'tasks', 'workers', 'reports');
+select tablename from pg_tables where schemaname = 'public' and tablename in
+  ('animals', 'health_events', 'breeding_events', 'feed_consumption', 'feed_inventory', 'financial_records', 'tasks', 'workers', 'reports', 'users');
