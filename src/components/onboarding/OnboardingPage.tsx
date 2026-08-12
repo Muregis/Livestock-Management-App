@@ -67,7 +67,7 @@ export default function OnboardingPage() {
   ];
 
   const createUserProfile = async (userId: string, values: RegistrationFormData) => {
-    const { error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("users")
       .insert([{
         id: userId,
@@ -78,11 +78,17 @@ export default function OnboardingPage() {
         phone: values.phone || null,
         is_active: true,
         hire_date: new Date().toISOString(),
-      }]);
+      }])
+      .select("id")
+      .maybeSingle();
 
-    if (profileError) {
-      console.warn("[OnboardingPage] unable to create profile row", profileError.message);
+    if (profileError || !profile) {
+      console.error("[OnboardingPage] unable to create profile row", profileError?.message || "no row returned");
+      setErrorMessage("Account was created, but the onboarding profile could not be saved. Please log in after email confirmation and try again.");
+      return false;
     }
+
+    return true;
   };
 
   const onSubmit = async (data: RegistrationFormData) => {
@@ -106,12 +112,21 @@ export default function OnboardingPage() {
         throw error;
       }
 
-      const userId = signUpData?.user?.id;
+      let userId = signUpData?.user?.id;
+      if (!userId) {
+        const sessionResult = await supabase.auth.getUser();
+        userId = sessionResult.data.user?.id;
+      }
+
       if (!userId) {
         throw new Error("Failed to create auth user.");
       }
 
-      await createUserProfile(userId, data);
+      const profileCreated = await createUserProfile(userId, data);
+      if (!profileCreated) {
+        return;
+      }
+
       localStorage.setItem("onboardingData", JSON.stringify(data));
       setCompleted(true);
       setResult({
