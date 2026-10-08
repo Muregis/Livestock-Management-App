@@ -1,146 +1,45 @@
-# 🌾 MVP Prototype App - Smart Livestock Management System
+# Smart Livestock Management — MVP
 
-<div align="center">
+A livestock operations prototype focused on records, health tracking, task management, and basic analytics.
 
-[![React](https://img.shields.io/badge/React-18.2-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.2-646CFF?style=for-the-badge&logo=vite)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+**Live demo:** [livestock-management-app.vercel.app](https://livestock-management-app.vercel.app)
 
-</div>
+## What this project covers
 
-## 🚀 Features
+- Dashboard with livestock and operational metrics
+- Health monitoring views (alerts, treatments, vaccination scheduling UI)
+- Task management (assignment, priority, progress)
+- Role-based UI structure
+- MySQL-backed data model (see `database/` and `MYSQL_SETUP.md`)
 
-### 🎯 Core Functionality
+## Tech stack
 
-- **📊 Real-time Analytics Dashboard**
-  - Live monitoring of livestock health metrics
-  - Production statistics and trends
-  - Feed consumption tracking
-  - Environmental conditions monitoring
+| Layer | Stack |
+|-------|--------|
+| Frontend | React 18, TypeScript, Vite |
+| UI | Tailwind CSS, Shadcn-style components |
+| Charts | Recharts |
+| Routing | React Router |
 
-- **🔄 Task Management System**
-  - Drag-and-drop task assignment
-  - Priority-based scheduling
-  - Worker allocation optimization
-  - Progress tracking
-
-- **🏥 Health Monitoring**
-  - Real-time health alerts
-  - Disease detection and prevention
-  - Vaccination scheduling
-  - Treatment tracking
-
-- **⛓️ Blockchain Integration**
-  - Secure record-keeping
-  - Transparent supply chain tracking
-  - QR code-based verification
-  - Transaction history
-
-### 🛠️ Technical Features
-
-- **🎨 Modern UI/UX**
-  - Responsive design for all devices
-  - Dark/Light theme support
-  - Intuitive navigation
-  - Accessible components
-
-- **🔒 Security**
-  - Role-based access control
-  - Secure authentication
-  - Data encryption
-  - Activity logging
-
-## 🏗️ Tech Stack
-
-- **Frontend Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS + ShadcnUI
-- **State Management**: React Hooks
-- **Routing**: React Router
-- **Charts**: Recharts
-- **Icons**: Lucide React
-
-## 🚀 Getting Started
-
-### Prerequisites
+## Getting started
 
 ```bash
-# Required
-node >= 18.0.0
-npm >= 9.0.0
-```
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/Livestock-Management-App-MVP.git
-
-# Navigate to project directory
-cd Livestock-Management-App-MVP
-
-# Install dependencies
+# Prerequisites: Node.js 18+
 npm install
-
-# Start development server
+cp .env.example .env   # configure DB / API URLs as needed
 npm run dev
 ```
 
-## 📱 Screenshots
+See `MYSQL_SETUP.md` and `CORE_FEATURES.md` for database setup and feature notes.
 
-<div align="center">
+## Project status
 
-### Dashboard Overview
-![Dashboard](https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&h=300&fit=crop)
+This is an **MVP / prototype**. Some features (e.g. blockchain, advanced disease detection) are sketched in the UI or docs and are not production-hardened. Treat the live demo as a product exploration surface, not a finished commercial system.
 
-### Health Monitoring
-![Health](https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=300&fit=crop)
+## License
 
-### Task Management
-![Tasks](https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=600&h=300&fit=crop)
-
-</div>
-
-## 🌟 Key Components
-
-```typescript
-// Example Dashboard Component Structure
-src/
-  ├── components/
-  │   ├── dashboard/
-  │   │   ├── AnalyticsGrid.tsx    // Main analytics display
-  │   │   ├── TaskManagementBoard.tsx   // Task management
-  │   │   └── HealthMonitorPanel.tsx    // Health monitoring
-  │   ├── blockchain/
-  │   │   └── BlockchainPage.tsx    // Blockchain integration
-  │   └── ...
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [ShadcnUI](https://ui.shadcn.com/) for the beautiful UI components
-- [Lucide Icons](https://lucide.dev/) for the icon set
-- [Recharts](https://recharts.org/) for the charting library
+MIT (if a LICENSE file is present in the repo).
 
 ---
 
-<div align="center">
-
-**Built with ❤️ by Muneeb**
-
-</div>
+Built by Victor Muregi
